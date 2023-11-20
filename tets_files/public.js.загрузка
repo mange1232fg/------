@@ -1,0 +1,342 @@
+﻿function addAlertDangerDismissable(container, text) { addAlertType(container, text, 'danger', 'icon-error', 2500); }
+function addAlertWarningDismissable(container, text) { addAlertType(container, text, 'warning', 'icon-warning', 2500); }
+function addAlertSuccessDismissable(container, text) { addAlertType(container, text, 'success', 'icon-check', 2500); }
+function addAlertDanger(container, text) { addAlertType(container, text, 'danger', 'icon-error', 0); }
+function addAlertWarning(container, text) { addAlertType(container, text, 'warning', 'icon-warning', 0); }
+function addAlertSuccess(container, text) { addAlertType(container, text, 'success', 'icon-check', 0); }
+function addAlertType(container, text, type, icon, timeout) {
+    var d = document.createElement("div");
+    var alertId = "alert_" + Math.random().toString().replace("0.", "");
+    var alertHtml =
+        '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button>' +
+        '<i class="icon ' + icon + '" aria-hidden="true"></i>' + text;
+    $(d).attr('id', alertId)
+        .addClass('alert dark alert-icon alert-' + type + ' alert-dismissible')
+        .attr('role', 'alert')
+        .html(alertHtml);
+    $(container).append(d);
+    if (timeout > 0)
+        setTimeout(function () {
+            $('#' + alertId).find('button').click();
+        }, timeout);
+}
+
+
+function openGlobalModal() {
+    $('#dGlobalModal').modal({ backdrop: 'static', keyboard: false });
+    var l = document.createElement('div');
+    $(l).addClass('loader loader-circle global-modal-loader');
+    $('#dGlobalModal').empty().append(l);
+    return $('#dGlobalModal');
+}
+var feedbackModalLng;
+function showFeedbackForm(lngPath) {
+    var $feedbackModal = openGlobalModal();
+    $feedbackModal.load("/common" + "/sitefeedback" + "?lng=" + lngPath, function () {
+        autosize($('#siteFeedbackMessage'));
+    });
+    feedbackModalLng = lngPath;
+    return false;
+}
+function sentFeedbackMsg() {
+    $('.modal-processing-loader').show();
+    var obj = { name: $('#siteFeedbackUserName').val(), email: $('#siteFeedbackEmail').val(), msg: $('#siteFeedbackMessage').val() };
+    $.ajax({
+        type: "POST",
+        url: "/common" + "/sitefeedback" + "?lng=" + feedbackModalLng,
+        dataType: 'json',
+        contentType: 'application/json',
+        data: JSON.stringify(obj),
+        success: function (data) {
+            $('.modal-processing-loader').hide();
+            if (!data.result) {
+                addAlertWarningDismissable('#siteFeedbackAlert', data.text);
+            } else {
+                addAlertSuccess('#siteFeedbackAlert', data.text);
+                $('#dGlobalModal').find('.btn-primary').remove();
+                $('#siteFeedbackUserName, #siteFeedbackEmail, #siteFeedbackMessage').attr('disabled', 'disabled');
+            }
+        }
+    });
+}
+
+document.onkeypress = function (e) {
+    if (!e) e = window.event;
+    if ((e.ctrlKey) && ((e.keyCode === 10) || (e.keyCode === 13))) {
+        var sel = mis_get_sel_text();
+        if (sel.selected_text.length > 300) {
+            alert('Можно выделить не более 300 символов!');
+        }
+        else if (sel.selected_text.length === 0) {
+            return false;
+        }
+        else {
+            // Get selection context.
+            var textErrorOnPageErrorValue = mis_get_sel_context(sel);
+            var $textErrorOnPageModal = openGlobalModal();
+            $textErrorOnPageModal.load("/common" + "/texterroronpage" + "?lng=" + $('html').attr('lang'), function () {
+                $('#textErrorOnPageUrl').val(window.location.href);
+                $('#textErrorOnPageValue').html(textErrorOnPageErrorValue);
+                autosize($('#textErrorOnPageComment'));
+            });
+        }
+    }
+    return true;
+};
+function sendCtrlEnterError() {
+    $('.modal-processing-loader').show();
+    var obj = { url: $("#textErrorOnPageUrl").val(), error: $("#textErrorOnPageValue").html(), comment: $("#textErrorOnPageComment").val() };
+    obj.error = obj.error.replace(/</g, '[').replace(/>/g, ']');
+    $.ajax({
+        type: "POST",
+        url: "/common" + "/texterroronpage" + "?lng=" + 'ru',
+        dataType: 'json',
+        contentType: 'application/json',
+        data: JSON.stringify(obj),
+        success: function (data) {
+            $('.modal-processing-loader').hide();
+            if (!data.result) {
+                addAlertWarningDismissable('#textErrorOnPageAlert', data.text);
+            } else {
+                addAlertSuccess('#textErrorOnPageAlert', data.text);
+                $('#dGlobalModal').find('.btn-primary').remove();
+                $('#textErrorOnPageUrl, #textErrorOnPageComment').attr('disabled', 'disabled');
+            }
+        }
+    });
+}
+function mis_get_sel_text() {
+    if (window.getSelection) {
+        txt = window.getSelection();
+        selected_text = txt.toString();
+        full_text = txt.anchorNode.textContent;
+        selection_start = txt.anchorOffset;
+        selection_end = txt.focusOffset;
+    }
+    else if (document.getSelection) {
+        txt = document.getSelection();
+        selected_text = txt.toString();
+        full_text = txt.anchorNode.textContent;
+        selection_start = txt.anchorOffset;
+        selection_end = txt.focusOffset;
+    }
+    else if (document.selection) {
+        txt = document.selection.createRange();
+        selected_text = txt.text;
+        full_text = txt.parentElement().innerText;
+
+        var stored_range = txt.duplicate();
+        stored_range.moveToElementText(txt.parentElement());
+        stored_range.setEndPoint('EndToEnd', txt);
+        selection_start = stored_range.text.length - txt.text.length;
+        selection_end = selection_start + selected_text.length;
+    }
+    else {
+        return;
+    }
+    var txt = {
+        selected_text: selected_text,
+        full_text: full_text,
+        selection_start: selection_start,
+        selection_end: selection_end
+    };
+    return txt;
+}
+function mis_get_sel_context(sel) {
+    selection_start = sel.selection_start;
+    selection_end = sel.selection_end;
+    if (selection_start > selection_end) {
+        tmp = selection_start;
+        selection_start = selection_end;
+        selection_end = tmp;
+    }
+
+    context = sel.full_text;
+
+    context_first = context.substring(0, selection_start);
+    context_second = context.substring(selection_start, selection_end);
+    context_third = context.substring(selection_end, context.length);
+    context = context_first + '<strong>' + context_second + '</strong>' + context_third;
+
+    context_start = selection_start - 60;
+    if (context_start < 0) {
+        context_start = 0;
+    }
+
+    context_end = selection_end + 60;
+    if (context_end > context.length) {
+        context_end = context.length;
+    }
+
+    context = context.substring(context_start, context_end);
+
+    context_start = context.indexOf(' ') + 1;
+
+    if (selection_start + 60 < context.length) {
+        context_end = context.lastIndexOf(' ', selection_start + 60);
+    }
+    else {
+        context_end = context.length;
+    }
+
+    selection_start = context.indexOf('<strong>');
+    if (context_start > selection_start) {
+        context_start = 0;
+    }
+
+    if (context_start) {
+        context = context.substring(context_start, context_end);
+    }
+
+    return context;
+}
+
+function goToFromServices() {
+    var h = $('.promo-block').offset().top + $('.promo-block').height();
+    $('html, body').animate({ scrollTop: h }, 500);
+    return false;
+}
+function showServiceVideo(a, d) {
+    $('.service-feature-video').children('div').hide();
+    $('.service-feature-video').find('a').removeClass('active');
+    $('#' + d).show();
+    $(a).addClass('active');
+    $('html, body').animate({ scrollTop: $('#' + d).offset().top - 150 }, 500);
+}
+function showSiteSearch() {
+    $('#site-search-panel').show();
+    $('#site-search-panel input').focus();
+    $('#site-search-panel input').on('keyup', function(e) {
+        if (e.keyCode === 27 || e.key === 'Escape') {
+            hideSiteSearch();
+        }
+    });
+    return false;
+}
+function hideSiteSearch() {
+    $('#site-search-panel').hide();
+    $('#site-search-panel input').off('keyup');
+    $('#site-search-panel input').val('');
+}
+
+function createLoader() {
+    var d = document.createElement("div");
+    $(d).css('display', 'block').addClass('text-center p-20').attr('id', 'proc-loader');
+    $(d).html('<div class="loader vertical-align-middle loader-ellipsis"></div>');
+    return d;
+}
+
+/* autoload module */
+(function ($) {
+    "use strict";
+    $.fn.autoLoadItems = function () {
+        return this.each(function () {
+            var $this = $(this);
+            var $d = $this.find('ul');
+            var lastAutoLoadNumber = $d.children().length;
+            var needToAutoLoadNext = true;
+            var $autoLoadMoreButton = $this.find('.auto-load-next button');
+            $autoLoadMoreButton.on('click', function () {
+                $autoLoadMoreButton.hide();
+                $d.append(createLoader());
+                
+                var div = document.createElement("div");
+                var url = document.location.href + "?lastnum=" + lastAutoLoadNumber;
+                $(div).load(url, function () {
+                    var nextAutoLoadItems = $(div).find('#' + $this.attr('id') + ' ul').children();
+                    if (nextAutoLoadItems.length === 0) {
+                        needToAutoLoadNext = false;
+                    } else {
+                        lastAutoLoadNumber += nextAutoLoadItems.length;
+                        $d.append(nextAutoLoadItems);
+                    }
+                    if (needToAutoLoadNext)
+                        $autoLoadMoreButton.show();
+                    else
+                        $autoLoadMoreButton.remove();
+                    $d.find('#proc-loader').remove();
+                    $('[data-toggle="tooltip"]').tooltip();
+                });
+            });
+        });
+    };
+})(window.jQuery);
+/* autoload module */
+(function ($) {
+    "use strict";
+    $.fn.scrollTopAction = function () {
+        return this.each(function () {
+            var $this = $(this);
+            var btnScrollTopVisible = false;
+            checkScrollTopActionState();
+            $(window).on('scroll',
+                function() {
+                    checkScrollTopActionState();
+                });
+            $(this).find('button').on('click', function() {
+                $('html, body').animate({
+                        scrollTop: 0
+                    },
+                    500);
+            });
+
+            function checkScrollTopActionState() {
+                if ($(window).scrollTop() > $(window).height() / 1.5) {
+                    if (!btnScrollTopVisible) {
+                        btnScrollTopVisible = true;
+                        $this.show(400);
+                    }
+                } else {
+                    if (btnScrollTopVisible) {
+                        btnScrollTopVisible = false;
+                        $this.hide(400);
+                    }
+                }
+            }
+        });
+    };
+})(window.jQuery);
+/* autoload module */
+(function ($) {
+    "use strict";
+    $.fn.yaSearchItems = function () {
+        return this.each(function () {
+            var $this = $(this);
+            var $txt = $this.find('input');
+            var $btn = $this.find('button');
+            var $res = $this.find('.search-items-results');
+            var iframe = document.createElement('iframe');
+            iframe.frameBorder = 0;
+            iframe.scrolling = 'no';
+            iframe.style.height = 0;
+            $res.append(iframe);
+            $txt.on('keydown', function (e) {
+                if (e.keyCode == 13)
+                    search();
+            })
+            $btn.on('click', function () {
+                search();
+            })
+            function search() {
+                iframe.src = $this.attr('url') + '?searchid=' + $this.attr('searchid') + '&text=' + $txt.val() + '&web=0'
+            }
+            setInterval(function () {
+                var h = $(iframe).contents().height();
+                if (h == 150)
+                    h = 0;
+                $(iframe).css('height', h + 'px');
+            }, 500);
+        });
+    };
+})(window.jQuery);
+
+
+
+
+
+
+
+
+
+/*!	autosize 4.0.2	license: MIT	http://www.jacklmoore.com/autosize */
+!function (e, t) { if ("function" == typeof define && define.amd) define(["module", "exports"], t); else if ("undefined" != typeof exports) t(module, exports); else { var n = { exports: {} }; t(n, n.exports), e.autosize = n.exports } }(this, function (e, t) { "use strict"; var n, o, p = "function" == typeof Map ? new Map : (n = [], o = [], { has: function (e) { return -1 < n.indexOf(e) }, get: function (e) { return o[n.indexOf(e)] }, set: function (e, t) { -1 === n.indexOf(e) && (n.push(e), o.push(t)) }, delete: function (e) { var t = n.indexOf(e); -1 < t && (n.splice(t, 1), o.splice(t, 1)) } }), c = function (e) { return new Event(e, { bubbles: !0 }) }; try { new Event("test") } catch (e) { c = function (e) { var t = document.createEvent("Event"); return t.initEvent(e, !0, !1), t } } function r(r) { if (r && r.nodeName && "TEXTAREA" === r.nodeName && !p.has(r)) { var e, n = null, o = null, i = null, d = function () { r.clientWidth !== o && a() }, l = function (t) { window.removeEventListener("resize", d, !1), r.removeEventListener("input", a, !1), r.removeEventListener("keyup", a, !1), r.removeEventListener("autosize:destroy", l, !1), r.removeEventListener("autosize:update", a, !1), Object.keys(t).forEach(function (e) { r.style[e] = t[e] }), p.delete(r) }.bind(r, { height: r.style.height, resize: r.style.resize, overflowY: r.style.overflowY, overflowX: r.style.overflowX, wordWrap: r.style.wordWrap }); r.addEventListener("autosize:destroy", l, !1), "onpropertychange" in r && "oninput" in r && r.addEventListener("keyup", a, !1), window.addEventListener("resize", d, !1), r.addEventListener("input", a, !1), r.addEventListener("autosize:update", a, !1), r.style.overflowX = "hidden", r.style.wordWrap = "break-word", p.set(r, { destroy: l, update: a }), "vertical" === (e = window.getComputedStyle(r, null)).resize ? r.style.resize = "none" : "both" === e.resize && (r.style.resize = "horizontal"), n = "content-box" === e.boxSizing ? -(parseFloat(e.paddingTop) + parseFloat(e.paddingBottom)) : parseFloat(e.borderTopWidth) + parseFloat(e.borderBottomWidth), isNaN(n) && (n = 0), a() } function s(e) { var t = r.style.width; r.style.width = "0px", r.offsetWidth, r.style.width = t, r.style.overflowY = e } function u() { if (0 !== r.scrollHeight) { var e = function (e) { for (var t = []; e && e.parentNode && e.parentNode instanceof Element;)e.parentNode.scrollTop && t.push({ node: e.parentNode, scrollTop: e.parentNode.scrollTop }), e = e.parentNode; return t }(r), t = document.documentElement && document.documentElement.scrollTop; r.style.height = "", r.style.height = r.scrollHeight + n + "px", o = r.clientWidth, e.forEach(function (e) { e.node.scrollTop = e.scrollTop }), t && (document.documentElement.scrollTop = t) } } function a() { u(); var e = Math.round(parseFloat(r.style.height)), t = window.getComputedStyle(r, null), n = "content-box" === t.boxSizing ? Math.round(parseFloat(t.height)) : r.offsetHeight; if (n < e ? "hidden" === t.overflowY && (s("scroll"), u(), n = "content-box" === t.boxSizing ? Math.round(parseFloat(window.getComputedStyle(r, null).height)) : r.offsetHeight) : "hidden" !== t.overflowY && (s("hidden"), u(), n = "content-box" === t.boxSizing ? Math.round(parseFloat(window.getComputedStyle(r, null).height)) : r.offsetHeight), i !== n) { i = n; var o = c("autosize:resized"); try { r.dispatchEvent(o) } catch (e) { } } } } function i(e) { var t = p.get(e); t && t.destroy() } function d(e) { var t = p.get(e); t && t.update() } var l = null; "undefined" == typeof window || "function" != typeof window.getComputedStyle ? ((l = function (e) { return e }).destroy = function (e) { return e }, l.update = function (e) { return e }) : ((l = function (e, t) { return e && Array.prototype.forEach.call(e.length ? e : [e], function (e) { return r(e) }), e }).destroy = function (e) { return e && Array.prototype.forEach.call(e.length ? e : [e], i), e }, l.update = function (e) { return e && Array.prototype.forEach.call(e.length ? e : [e], d), e }), t.default = l, e.exports = t.default });
